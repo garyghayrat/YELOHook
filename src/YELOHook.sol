@@ -10,14 +10,19 @@ import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 import {ERC6909Claims} from "@uniswap/v4-core/src/ERC6909Claims.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 
 contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     using PoolIdLibrary for PoolKey;
+    using CurrencyLibrary for Currency;
 
     // NOTE: ---------------------------------------------------------
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
+    mapping(PoolId poolId => mapping(int24 targetTick => mapping(bool zeroForOne => uint256 amount))) limitOrders;
+    mapping(uint256 orderId => uint256 claimsMinted) public claimsMintedPerOrderId;
 
     mapping(PoolId => uint256 count) public beforeSwapCount;
     mapping(PoolId => uint256 count) public afterSwapCount;
@@ -26,6 +31,10 @@ contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     mapping(PoolId => uint256 count) public beforeRemoveLiquidityCount;
 
     constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
+
+    function orderId(PoolKey calldata _key, int24 _targetTick, bool _zeroForOne) public pure returns (uint256) {
+        return uint256(keccak256(abi.encode(_key, _targetTick, _zeroForOne)));
+    }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
