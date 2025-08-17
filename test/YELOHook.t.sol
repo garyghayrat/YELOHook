@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Test, console2} from "forge-std/Test.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
@@ -134,5 +135,32 @@ contract YELOHookTest is Test, Deployers {
 
         assertEq(hook.beforeAddLiquidityCount(poolId), 1);
         assertEq(hook.beforeRemoveLiquidityCount(poolId), 1);
+    }
+}
+
+contract PlaceOrder is YELOHookTest {
+    function test_PlaceOrder(address _sender, int24 _targetTick, bool _zeroForOne, uint256 _amount) public {
+        IERC20 _sellToken = hook.sellToken(poolKey, _zeroForOne);
+        deal(address(_sellToken), _sender, _amount);
+
+        vm.startPrank(_sender);
+        _sellToken.approve(address(hook), _amount);
+        hook.placeOrder(poolKey, _targetTick, _zeroForOne, _amount);
+        vm.stopPrank();
+
+        // Limit order mapping updates correctly
+        assertEq(hook.limitOrders(poolKey.toId(), _targetTick, _zeroForOne), _amount);
+
+        // Claims minted per order id updates correctly
+        assertEq(hook.claimsMintedPerOrderId(hook.orderId(poolKey, _targetTick, _zeroForOne)), _amount);
+
+        // Sender balance of sell token updates correctly
+        assertEq(_sellToken.balanceOf(_sender), 0);
+
+        // Sell token balance of hook updates correctly
+        assertEq(_sellToken.balanceOf(address(hook)), _amount);
+
+        // Sender balance of hook updates correctly
+        assertEq(hook.balanceOf(_sender, hook.orderId(poolKey, _targetTick, _zeroForOne)), _amount);
     }
 }

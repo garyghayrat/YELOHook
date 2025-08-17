@@ -21,7 +21,7 @@ contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
-    mapping(PoolId poolId => mapping(int24 targetTick => mapping(bool zeroForOne => uint256 amount))) limitOrders;
+    mapping(PoolId poolId => mapping(int24 targetTick => mapping(bool zeroForOne => uint256 amount))) public limitOrders;
     mapping(uint256 orderId => uint256 claimsMinted) public claimsMintedPerOrderId;
 
     mapping(PoolId => uint256 count) public beforeSwapCount;
@@ -34,6 +34,22 @@ contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
 
     function orderId(PoolKey calldata _key, int24 _targetTick, bool _zeroForOne) public pure returns (uint256) {
         return uint256(keccak256(abi.encode(_key, _targetTick, _zeroForOne)));
+    }
+
+    function sellToken(PoolKey calldata _key, bool _zeroForOne) public pure returns (IERC20) {
+        return _zeroForOne ? IERC20(Currency.unwrap(_key.currency0)) : IERC20(Currency.unwrap(_key.currency1));
+    }
+
+    function placeOrder(PoolKey calldata _key, int24 _targetTick, bool _zeroForOne, uint256 _amount) public {
+        sellToken(_key, _zeroForOne).transferFrom(msg.sender, address(this), _amount);
+
+        // TODO: Supply to aave vault
+
+        uint256 _orderId = orderId(_key, _targetTick, _zeroForOne);
+        limitOrders[_key.toId()][_targetTick][_zeroForOne] += _amount;
+
+        claimsMintedPerOrderId[_orderId] += _amount;
+        _mint(msg.sender, _orderId, _amount);
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
