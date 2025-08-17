@@ -46,9 +46,11 @@ contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     }
 
     function placeOrder(PoolKey calldata _key, int24 _targetTick, bool _zeroForOne, uint256 _amount) public {
-        sellToken(_key, _zeroForOne).transferFrom(msg.sender, address(this), _amount);
+        IERC20 _sellToken = sellToken(_key, _zeroForOne);
+        _sellToken.transferFrom(msg.sender, address(this), _amount);
 
-        // TODO: Supply to aave vault
+        _sellToken.approve(address(AAVE_POOL), _amount);
+        AAVE_POOL.supply(address(_sellToken), _amount, address(this), 0);
 
         uint256 _orderId = orderId(_key, _targetTick, _zeroForOne);
         limitOrders[_key.toId()][_targetTick][_zeroForOne] += _amount;

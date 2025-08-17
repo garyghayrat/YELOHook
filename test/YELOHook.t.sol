@@ -164,7 +164,10 @@ contract PlaceOrder is YELOHookTest {
         assertEq(_sellToken.balanceOf(_sender), 0);
 
         // Sell token balance of hook updates correctly
-        assertEq(_sellToken.balanceOf(address(hook)), _amount);
+        assertEq(_sellToken.balanceOf(address(hook)), 0);
+
+        // Aave pool balance of sell token updates correctly
+        assertEq(aavePool.aTokenBalances(address(_sellToken), address(hook)), _amount);
 
         // Sender balance of hook updates correctly
         assertEq(hook.balanceOf(_sender, hook.orderId(poolKey, _targetTick, _zeroForOne)), _amount);
