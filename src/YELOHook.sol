@@ -9,8 +9,9 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
+import {ERC6909Claims} from "@uniswap/v4-core/src/ERC6909Claims.sol";
 
-contract YieldEarningLimitOrdersHook is BaseHook {
+contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     using PoolIdLibrary for PoolKey;
 
     // NOTE: ---------------------------------------------------------
