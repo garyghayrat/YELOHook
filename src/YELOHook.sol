@@ -7,7 +7,9 @@ import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {IPoolManager, SwapParams, ModifyLiquidityParams} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
 import {ERC6909Claims} from "@uniswap/v4-core/src/ERC6909Claims.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -17,11 +19,13 @@ import {IPool} from "lib/aave-v3-core/contracts/interfaces/IPool.sol";
 contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
+    using StateLibrary for IPoolManager;
 
     // NOTE: ---------------------------------------------------------
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
+    mapping(PoolId poolId => int24 lastTick) public lastTick;
     mapping(PoolId poolId => mapping(int24 targetTick => mapping(bool zeroForOne => uint256 amount))) public limitOrders;
     mapping(uint256 orderId => uint256 claimsMinted) public claimsMintedPerOrderId;
 
@@ -83,17 +87,37 @@ contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     // -----------------------------------------------
 
     function _afterInitialize(address, PoolKey calldata key, uint160, int24 tick) internal override returns (bytes4) {
+        lastTick[key.toId()] = tick;
         return this.afterInitialize.selector;
     }
 
-    function _afterSwap(address, PoolKey calldata key, SwapParams calldata, BalanceDelta, bytes calldata)
+    function _afterSwap(address, PoolKey calldata _key, SwapParams calldata _params, BalanceDelta, bytes calldata)
         internal
         override
         returns (bytes4, int128)
     {
-        afterSwapCount[key.toId()]++;
+        PoolId id = _key.toId();
+        afterSwapCount[id]++;
+
+        (, int24 currentTick,,) = poolManager.getSlot0(id);
+        int24 _lastTick = lastTick[id];
+        bool _zeroForOne = !_params.zeroForOne;
+
+        if (currentTick != _lastTick) {
+            int24 _step = currentTick > _lastTick ? int24(1) : int24(-1);
+            for (int24 tick = _lastTick; tick != currentTick; tick += _step) {
+                uint256 _amount = limitOrders[id][tick][_zeroForOne];
+                if (_amount > 0) {
+                    _executeOrder(_key, tick, _zeroForOne, _amount);
+                }
+            }
+        }
+
+        lastTick[id] = currentTick;
         return (BaseHook.afterSwap.selector, 0);
     }
+
+    function _executeOrder(PoolKey calldata _key, int24 _targetTick, bool _zeroForOne, uint256 _amount) internal {}
 
     function _beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata)
         internal

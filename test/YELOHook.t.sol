@@ -44,7 +44,7 @@ contract YELOHookTest is Test, Deployers {
     int24 tickLower;
     int24 tickUpper;
 
-    function setUp() public {
+    function setUp() public virtual {
         // Deploys all required artifacts.
         deployArtifacts();
 
@@ -141,6 +141,12 @@ contract YELOHookTest is Test, Deployers {
 
         assertEq(hook.beforeAddLiquidityCount(poolId), 1);
         assertEq(hook.beforeRemoveLiquidityCount(poolId), 1);
+    }
+}
+
+contract LastTick is YELOHookTest {
+    function test_LastTick() public view {
+        assertEq(hook.lastTick(poolId), 0);
     }
 }
 
