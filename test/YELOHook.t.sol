@@ -22,6 +22,7 @@ import {EasyPosm} from "./utils/libraries/EasyPosm.sol";
 import {Deployers} from "./utils/Deployers.sol";
 
 import {YieldEarningLimitOrdersHook as YELOHook} from "../src/YELOHook.sol";
+import {MockAavePool} from "../src/mocks/MockAavePool.sol";
 
 contract YELOHookTest is Test, Deployers {
     using EasyPosm for IPositionManager;
@@ -33,6 +34,8 @@ contract YELOHookTest is Test, Deployers {
     Currency currency1;
 
     PoolKey poolKey;
+
+    MockAavePool aavePool;
 
     YELOHook hook;
     PoolId poolId;
@@ -47,6 +50,9 @@ contract YELOHookTest is Test, Deployers {
 
         (currency0, currency1) = deployCurrencyPair();
 
+        // Deploy the mock aave pool.
+        aavePool = new MockAavePool();
+
         // Deploy the hook to an address with the correct flags
         address flags = address(
             uint160(
@@ -54,7 +60,7 @@ contract YELOHookTest is Test, Deployers {
                     | Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
             ) ^ (0x4444 << 144) // Namespace the hook to avoid collisions
         );
-        bytes memory constructorArgs = abi.encode(poolManager); // Add all the necessary constructor arguments from the hook
+        bytes memory constructorArgs = abi.encode(poolManager, aavePool); // Add all the necessary constructor arguments from the hook
         deployCodeTo("YELOHook.sol:YieldEarningLimitOrdersHook", constructorArgs, flags);
         hook = YELOHook(flags);
 

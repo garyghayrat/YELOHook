@@ -12,6 +12,7 @@ import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/type
 import {ERC6909Claims} from "@uniswap/v4-core/src/ERC6909Claims.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
+import {IPool} from "lib/aave-v3-core/contracts/interfaces/IPool.sol";
 
 contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     using PoolIdLibrary for PoolKey;
@@ -24,13 +25,17 @@ contract YieldEarningLimitOrdersHook is BaseHook, ERC6909Claims {
     mapping(PoolId poolId => mapping(int24 targetTick => mapping(bool zeroForOne => uint256 amount))) public limitOrders;
     mapping(uint256 orderId => uint256 claimsMinted) public claimsMintedPerOrderId;
 
+    IPool public immutable AAVE_POOL;
+
     mapping(PoolId => uint256 count) public beforeSwapCount;
     mapping(PoolId => uint256 count) public afterSwapCount;
 
     mapping(PoolId => uint256 count) public beforeAddLiquidityCount;
     mapping(PoolId => uint256 count) public beforeRemoveLiquidityCount;
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {}
+    constructor(IPoolManager _poolManager, IPool _aavePool) BaseHook(_poolManager) {
+        AAVE_POOL = _aavePool;
+    }
 
     function orderId(PoolKey calldata _key, int24 _targetTick, bool _zeroForOne) public pure returns (uint256) {
         return uint256(keccak256(abi.encode(_key, _targetTick, _zeroForOne)));

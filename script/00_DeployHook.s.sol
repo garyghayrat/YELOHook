@@ -7,6 +7,7 @@ import {HookMiner} from "@uniswap/v4-periphery/src/utils/HookMiner.sol";
 import {BaseScript} from "./base/BaseScript.sol";
 
 import {YieldEarningLimitOrdersHook as YELOHook} from "../src/YELOHook.sol";
+import {MockAavePool} from "../src/mocks/MockAavePool.sol";
 
 /// @notice Mines the address and deploys the Counter.sol Hook contract
 contract DeployHookScript is BaseScript {
@@ -24,9 +25,10 @@ contract DeployHookScript is BaseScript {
 
         // Deploy the hook using CREATE2
         vm.startBroadcast();
-        YELOHook counter = new YELOHook{salt: salt}(poolManager);
+        MockAavePool aavePool = new MockAavePool();
+        YELOHook yeloHook = new YELOHook{salt: salt}(poolManager, aavePool);
         vm.stopBroadcast();
 
-        require(address(counter) == hookAddress, "DeployHookScript: Hook Address Mismatch");
+        require(address(yeloHook) == hookAddress, "DeployHookScript: Hook Address Mismatch");
     }
 }
