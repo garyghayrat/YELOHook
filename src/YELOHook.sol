@@ -29,7 +29,7 @@ contract YieldEarningLimitOrdersHook is BaseHook {
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
             beforeInitialize: false,
-            afterInitialize: false,
+            afterInitialize: true,
             beforeAddLiquidity: true,
             afterAddLiquidity: false,
             beforeRemoveLiquidity: true,
@@ -49,13 +49,8 @@ contract YieldEarningLimitOrdersHook is BaseHook {
     // NOTE: see IHooks.sol for function documentation
     // -----------------------------------------------
 
-    function _beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata)
-        internal
-        override
-        returns (bytes4, BeforeSwapDelta, uint24)
-    {
-        beforeSwapCount[key.toId()]++;
-        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+    function _afterInitialize(address, PoolKey calldata key, uint160, int24 tick) internal override returns (bytes4) {
+        return this.afterInitialize.selector;
     }
 
     function _afterSwap(address, PoolKey calldata key, SwapParams calldata, BalanceDelta, bytes calldata)
@@ -65,6 +60,15 @@ contract YieldEarningLimitOrdersHook is BaseHook {
     {
         afterSwapCount[key.toId()]++;
         return (BaseHook.afterSwap.selector, 0);
+    }
+
+    function _beforeSwap(address, PoolKey calldata key, SwapParams calldata, bytes calldata)
+        internal
+        override
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
+        beforeSwapCount[key.toId()]++;
+        return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
     function _beforeAddLiquidity(address, PoolKey calldata key, ModifyLiquidityParams calldata, bytes calldata)
